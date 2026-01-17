@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request
 import requests
+import json
 
 app = Flask(__name__)
 
@@ -35,16 +36,21 @@ def index():
                         ]]
                     }
 
+                # -----------------------------
+                # SEND PHOTO WITH CAPTION
+                # -----------------------------
                 if photo and photo.filename:
-                    # Send photo with caption
                     url = f"https://api.telegram.org/bot{bot_token}/sendPhoto"
+
                     data = {
                         "chat_id": chat_id,
                         "caption": text,
                         "parse_mode": "HTML"
                     }
+
+                    # IMPORTANT FIX: stringify reply_markup
                     if reply_markup:
-                        data["reply_markup"] = reply_markup
+                        data["reply_markup"] = json.dumps(reply_markup)
 
                     files = {
                         "photo": (photo.filename, photo.stream, photo.mimetype)
@@ -52,20 +58,25 @@ def index():
 
                     r = requests.post(url, data=data, files=files, timeout=30)
 
+                # -----------------------------
+                # SEND NORMAL TEXT MESSAGE
+                # -----------------------------
                 else:
-                    # Send normal text message
                     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+
                     payload = {
                         "chat_id": chat_id,
                         "text": text,
                         "parse_mode": "HTML"
                     }
+
                     if reply_markup:
                         payload["reply_markup"] = reply_markup
 
                     r = requests.post(url, json=payload, timeout=20)
 
                 res = r.json()
+
                 if res.get("ok"):
                     message = "✅ Post sent successfully!"
                     message_type = 'success'
