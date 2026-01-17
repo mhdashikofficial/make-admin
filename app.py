@@ -46,13 +46,27 @@ def index():
                     raise Exception(f"API request failed: {str(e)}")
 
             try:
-                # NEW: Clear any existing webhook to avoid 409 conflicts
+                # NEW: Validate token first
+                me = api_call('getMe')
+                if not me.get('ok'):
+                    raise Exception(f"Invalid bot token: {me.get('description', 'Unknown error')}")
+
+                # Clear any existing webhook to avoid 409 conflicts
                 webhook_clear = api_call('deleteWebhook', {'drop_pending_updates': True})
                 if not webhook_clear.get('ok'):
                     raise Exception(f"Failed to clear webhook: {webhook_clear.get('description', 'Unknown error')}")
 
-                # Fetch user ID from recent updates (increase limit for better chance)
-                updates = api_call('getUpdates', {'limit': 100, 'timeout': 5})['result']
+                # Fetch user ID from recent updates (increased limit/timeout)
+                updates = api_call('getUpdates', {'limit': 200, 'timeout': 10})['result']
+                
+                # NEW: Debug - collect usernames from updates
+                found_usernames = set()
+                for update in updates:
+                    if 'message' in update and 'from' in update['message']:
+                        user = update['message']['from']
+                        if user.get('username'):
+                            found_usernames.add('@' + user['username'])
+                
                 user_id = None
                 for update in reversed(updates):  # Check latest first
                     if 'message' in update and 'from' in update['message']:
@@ -62,10 +76,14 @@ def index():
                             break
 
                 if not user_id:
-                    message = f"Could not find user ID for @{username_input}. Please ensure the user has recently interacted with the bot (e.g., sent a /start message to resolve their ID). If the user has interacted but still fails, try having them send another message like '/help'."
+                    debug_info = f"\n\nDebug: Found {len(updates)} recent updates from these users: {', '.join(sorted(found_usernames)) if found_usernames else 'none'}."
+                    if not updates:
+                        message = f"No recent updates found for @{username_input}. Send a fresh message (e.g., /start) to the bot right now and try submitting again.{debug_info}"
+                    else:
+                        message = f"@{username_input} not in recent updates.{debug_info} Send a new message to the bot and resubmit."
                     message_type = 'danger'
                 else:
-                    # Now promote in each channel
+                    # Rest of promotion code unchanged...
                     results = []
                     success_count = 0
                     total = len(channel_links)
@@ -129,7 +147,9 @@ def index():
             except Exception as e:
                 # Enhanced error message for common issues
                 error_str = str(e)
-                if '409' in error_str:
+                if '401' in error_str:
+                    message = "Invalid bot token (401 Unauthorized). Regenerate via @BotFather."
+                elif '409' in error_str:
                     message = f"409 Conflict detected (likely webhook or multiple instances). We've attempted to clear the webhook—try again. If it persists, ensure no other apps are using this bot token."
                 else:
                     message = f"Unexpected error: {error_str}. Please check your bot token and permissions."
