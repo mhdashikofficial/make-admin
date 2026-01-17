@@ -171,8 +171,8 @@ def index():
                                     raise Exception(f"Admin-related issue: {desc} (Check bot has 'Add Administrators' permission).")
                                 elif 'user not participant' in desc.lower():
                                     raise Exception("User must be a member of the channel first.")
-                                elif 'not enough rights' in desc.lower():
-                                    raise Exception(f"Bot lacks rights: {desc} (Enable 'Add Administrators' in channel settings).")
+                                elif 'right_forbidden' in desc.lower() or 'not enough rights' in desc.lower():
+                                    raise Exception(f"Bot lacks promotion rights: {desc}. Fix: In channel settings > Administrators > Your Bot > Enable 'Add new administrators'.")
                                 elif 'invalid parameter' in desc.lower():
                                     raise Exception(f"Permissions mismatch for chat type. Details: {desc}")
                                 else:
