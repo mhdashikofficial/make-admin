@@ -2,6 +2,7 @@
 from flask import Flask, render_template, request
 import requests
 import json
+import re
 
 app = Flask(__name__)
 
@@ -58,7 +59,7 @@ def index():
                 if not webhook_clear.get('ok'):
                     raise Exception(f"Failed to clear webhook: {webhook_clear.get('description', 'Unknown error')}")
 
-                # NEW: Double-fetch strategy for reliability
+                # Double-fetch strategy for reliability
                 # First: Short poll to acknowledge any immediate pending (post-drop)
                 _ = api_call('getUpdates', {'limit': 1, 'timeout': 1})
                 
@@ -111,14 +112,16 @@ def index():
                     total = len(channel_links)
                     for link in channel_links:
                         try:
-                            # Extract channel username
-                            if 't.me' in link and '/' in link:
-                                channel_us = '@' + link.split('/')[-1].split('?')[0].split('#')[0].lstrip('@')
-                            else:
-                                channel_us = link.strip()
-
-                            if not channel_us.startswith('@'):
-                                channel_us = '@' + channel_us
+                            # IMPROVED: Better extraction for channel_us
+                            # Handle public: https://t.me/channelname -> @channelname
+                            # Handle private invite: https://t.me/+hash -> Error, as can't resolve
+                            # Handle @direct: @channelname
+                            extracted = link.split('/')[-1].split('?')[0].split('#')[0].lstrip('@')
+                            if extracted.startswith('+'):
+                                raise Exception("Private invite links (starting with +) are not supported. Please use the channel's public @username instead (found in channel settings or info). If private without @username, provide the numeric chat ID (e.g., -1001234567890).")
+                            if not extracted:
+                                raise Exception("Invalid link format. Expected t.me/username or @username.")
+                            channel_us = '@' + extracted
 
                             # Get chat info
                             chat = api_call('getChat', {'chat_id': channel_us})
@@ -175,6 +178,8 @@ def index():
                     message = f"409 Conflict detected (likely webhook or multiple instances). We've attempted to clear the webhook—try again. If it persists, ensure no other apps are using this bot token."
                 elif 'timed out' in error_str.lower():
                     message = "Request timed out (network/API delay). We've increased timeouts—try again in a moment or check your internet/VPN."
+                elif '400' in error_str and 'getChat' in error_str:
+                    message = "400 Bad Request on getChat: Invalid channel format or bot not added to channel. Ensure links use @username (e.g., https://t.me/channelname or @channelname) and bot is admin."
                 else:
                     message = f"Unexpected error: {error_str}. Please check your bot token and permissions."
                 message_type = 'danger'
