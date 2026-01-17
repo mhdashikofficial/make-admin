@@ -46,8 +46,8 @@ https://make-admin-lovat.vercel.app/
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/mhdashikofficial/<your-repo-name>.git
-   cd <your-repo-name>
+   git clone https://github.com/mhdashikofficial/make-admin.git
+   cd make-admin
 ````
 
 2. **Install dependencies**
