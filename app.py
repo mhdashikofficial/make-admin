@@ -53,21 +53,41 @@ def index():
                 if not me.get('ok'):
                     raise Exception(f"Invalid bot token: {me.get('description', 'Unknown error')}")
 
-                # Clear any existing webhook to avoid 409 conflicts
+                # Clear any existing webhook to avoid 409 conflicts and drop pending
                 webhook_clear = api_call('deleteWebhook', {'drop_pending_updates': True})
                 if not webhook_clear.get('ok'):
                     raise Exception(f"Failed to clear webhook: {webhook_clear.get('description', 'Unknown error')}")
 
-                # Fetch user ID from recent updates (increased limit/timeout)
-                updates = api_call('getUpdates', {'limit': 200, 'timeout': 20})['result']  # Increased inner timeout to 20s
+                # NEW: Double-fetch strategy for reliability
+                # First: Short poll to acknowledge any immediate pending (post-drop)
+                _ = api_call('getUpdates', {'limit': 1, 'timeout': 1})
                 
-                # Debug - collect usernames from updates
+                # Second: Long poll for fresh messages (e.g., the one just sent)
+                updates = api_call('getUpdates', {'limit': 200, 'timeout': 20})['result']
+                
+                # ENHANCED Debug - collect usernames and details
                 found_usernames = set()
-                for update in updates:
-                    if 'message' in update and 'from' in update['message']:
-                        user = update['message']['from']
-                        if user.get('username'):
-                            found_usernames.add('@' + user['username'])
+                update_details = []
+                for i, update in enumerate(updates):
+                    detail = f"Update {i+1}: "
+                    if 'message' in update:
+                        msg = update['message']
+                        from_user = msg.get('from', {})
+                        username = from_user.get('username')
+                        if username:
+                            found_usernames.add('@' + username)
+                            detail += f"From @{username} (ID: {from_user.get('id')})"
+                        else:
+                            first = from_user.get('first_name', 'Unknown')
+                            last = from_user.get('last_name', '')
+                            detail += f"From anonymous user '{first} {last}' (ID: {from_user.get('id')})"
+                        text = msg.get('text', 'No text (possibly media/sticker)')
+                        detail += f" | Text: '{text[:50]}...'"
+                    elif 'callback_query' in update:
+                        detail += "Callback query (button press)"
+                    else:
+                        detail += f"Other type: {list(update.keys())}"
+                    update_details.append(detail)
                 
                 user_id = None
                 for update in reversed(updates):  # Check latest first
@@ -78,11 +98,11 @@ def index():
                             break
 
                 if not user_id:
-                    debug_info = f"\n\nDebug: Found {len(updates)} recent updates from these users: {', '.join(sorted(found_usernames)) if found_usernames else 'none'}."
+                    debug_info = f"\n\nDebug: Found {len(updates)} recent updates:\n" + '\n'.join(update_details)
                     if not updates:
-                        message = f"No recent updates found for @{username_input}. Send a fresh message (e.g., /start) to the bot right now and try submitting again.{debug_info}"
+                        message = f"No recent updates found for @{username_input}. Ensure you sent a message *after* the previous submit (or start fresh).{debug_info}"
                     else:
-                        message = f"@{username_input} not in recent updates.{debug_info} Send a new message to the bot and resubmit."
+                        message = f"@{username_input} not in recent updates (checked latest first).{debug_info}\n\nTroubleshoot: 1) Send '/start hello' (include text) right now. 2) Wait 5s, resubmit. 3) If anonymous in debug, set a username in Telegram settings."
                     message_type = 'danger'
                 else:
                     # Rest of promotion code unchanged...
