@@ -46,6 +46,11 @@ def index():
                     raise Exception(f"API request failed: {str(e)}")
 
             try:
+                # NEW: Clear any existing webhook to avoid 409 conflicts
+                webhook_clear = api_call('deleteWebhook', {'drop_pending_updates': True})
+                if not webhook_clear.get('ok'):
+                    raise Exception(f"Failed to clear webhook: {webhook_clear.get('description', 'Unknown error')}")
+
                 # Fetch user ID from recent updates (increase limit for better chance)
                 updates = api_call('getUpdates', {'limit': 100, 'timeout': 5})['result']
                 user_id = None
@@ -57,7 +62,7 @@ def index():
                             break
 
                 if not user_id:
-                    message = f"Could not find user ID for @{username_input}. Please ensure the user has recently interacted with the bot (e.g., sent a /start message to resolve their ID)."
+                    message = f"Could not find user ID for @{username_input}. Please ensure the user has recently interacted with the bot (e.g., sent a /start message to resolve their ID). If the user has interacted but still fails, try having them send another message like '/help'."
                     message_type = 'danger'
                 else:
                     # Now promote in each channel
@@ -122,7 +127,12 @@ def index():
                         message_type = 'warning'
 
             except Exception as e:
-                message = f"Unexpected error: {str(e)}. Please check your bot token and permissions."
+                # Enhanced error message for common issues
+                error_str = str(e)
+                if '409' in error_str:
+                    message = f"409 Conflict detected (likely webhook or multiple instances). We've attempted to clear the webhook—try again. If it persists, ensure no other apps are using this bot token."
+                else:
+                    message = f"Unexpected error: {error_str}. Please check your bot token and permissions."
                 message_type = 'danger'
 
         token = bot_token  # Repopulate non-sensitive fields; token as password so not repopulated
