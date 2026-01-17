@@ -9,19 +9,12 @@ def index():
     message = None
     message_type = None
 
-    bot_token = ''
-    chat_id = ''
-    text = ''
-    button_text = ''
-    button_url = ''
-
     if request.method == 'POST':
-        bot_token = request.form['token'].strip()
-        chat_id = request.form['chat_id'].strip()
-        text = request.form['message'].strip()
-        button_text = request.form['button_text'].strip()
-        button_url = request.form['button_url'].strip()
+        bot_token = request.form.get('token', '').strip()
+        chat_id = request.form.get('chat_id', '').strip()
+        text = request.form.get('message', '').strip()
         photo = request.files.get('photo')
+        buttons_raw = request.form.get('buttons')
 
         if not bot_token or not chat_id or not text:
             message = "Bot token, chat ID, and message are required."
@@ -29,16 +22,22 @@ def index():
         else:
             try:
                 reply_markup = None
-                if button_text and button_url:
-                    reply_markup = {
-                        "inline_keyboard": [[
-                            {"text": button_text, "url": button_url}
-                        ]]
-                    }
 
-                # -----------------------------
-                # SEND PHOTO WITH CAPTION
-                # -----------------------------
+                if buttons_raw:
+                    buttons = json.loads(buttons_raw)
+
+                    keyboard = []
+                    for btn in buttons:
+                        if btn.get('text') and btn.get('url'):
+                            keyboard.append([{
+                                "text": btn['text'],
+                                "url": btn['url']
+                            }])
+
+                    if keyboard:
+                        reply_markup = {"inline_keyboard": keyboard}
+
+                # ---------------- PHOTO POST ----------------
                 if photo and photo.filename:
                     url = f"https://api.telegram.org/bot{bot_token}/sendPhoto"
 
@@ -48,7 +47,6 @@ def index():
                         "parse_mode": "HTML"
                     }
 
-                    # IMPORTANT FIX: stringify reply_markup
                     if reply_markup:
                         data["reply_markup"] = json.dumps(reply_markup)
 
@@ -58,9 +56,7 @@ def index():
 
                     r = requests.post(url, data=data, files=files, timeout=30)
 
-                # -----------------------------
-                # SEND NORMAL TEXT MESSAGE
-                # -----------------------------
+                # ---------------- TEXT POST ----------------
                 else:
                     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
 
@@ -88,15 +84,9 @@ def index():
                 message = f"Unexpected error: {str(e)}"
                 message_type = 'danger'
 
-    return render_template(
-        'index.html',
+    return render_template('index.html',
         message=message,
-        message_type=message_type,
-        bot_token=bot_token,
-        chat_id=chat_id,
-        text=text,
-        button_text=button_text,
-        button_url=button_url
+        message_type=message_type
     )
 
 if __name__ == '__main__':
