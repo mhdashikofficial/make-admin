@@ -20,32 +20,54 @@ def index():
         text = request.form['message'].strip()
         button_text = request.form['button_text'].strip()
         button_url = request.form['button_url'].strip()
+        photo = request.files.get('photo')
 
         if not bot_token or not chat_id or not text:
-            message = "Bot token, chat ID, and message text are required."
+            message = "Bot token, chat ID, and message are required."
             message_type = 'danger'
         else:
-            api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-
-            payload = {
-                "chat_id": chat_id,
-                "text": text,
-                "parse_mode": "HTML"
-            }
-
-            if button_text and button_url:
-                payload["reply_markup"] = {
-                    "inline_keyboard": [[
-                        {"text": button_text, "url": button_url}
-                    ]]
-                }
-
             try:
-                r = requests.post(api_url, json=payload, timeout=20)
-                res = r.json()
+                reply_markup = None
+                if button_text and button_url:
+                    reply_markup = {
+                        "inline_keyboard": [[
+                            {"text": button_text, "url": button_url}
+                        ]]
+                    }
 
+                if photo and photo.filename:
+                    # Send photo with caption
+                    url = f"https://api.telegram.org/bot{bot_token}/sendPhoto"
+                    data = {
+                        "chat_id": chat_id,
+                        "caption": text,
+                        "parse_mode": "HTML"
+                    }
+                    if reply_markup:
+                        data["reply_markup"] = reply_markup
+
+                    files = {
+                        "photo": (photo.filename, photo.stream, photo.mimetype)
+                    }
+
+                    r = requests.post(url, data=data, files=files, timeout=30)
+
+                else:
+                    # Send normal text message
+                    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                    payload = {
+                        "chat_id": chat_id,
+                        "text": text,
+                        "parse_mode": "HTML"
+                    }
+                    if reply_markup:
+                        payload["reply_markup"] = reply_markup
+
+                    r = requests.post(url, json=payload, timeout=20)
+
+                res = r.json()
                 if res.get("ok"):
-                    message = "✅ Message sent successfully!"
+                    message = "✅ Post sent successfully!"
                     message_type = 'success'
                 else:
                     message = f"❌ Telegram error: {res.get('description', 'Unknown error')}"
