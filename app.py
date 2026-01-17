@@ -41,7 +41,9 @@ def index():
                 except requests.exceptions.Timeout:
                     raise Exception("Request timed out. Telegram API may be slow; try again or check your connection.")
                 except requests.exceptions.RequestException as e:
-                    raise Exception(f"API request failed: {str(e)}")
+                    # Mask token in errors for security
+                    error_msg = str(e).replace(bot_token, '***TOKEN***')
+                    raise Exception(f"API request failed: {error_msg}")
             try:
                 # Validate token first
                 me = api_call('getMe')
@@ -125,26 +127,46 @@ def index():
                             if not chat.get('ok'):
                                 raise Exception(chat.get('description', 'Invalid channel or bot not in channel'))
                             chat_id = chat['result']['id']
-                            # Promote params (full admin rights)
+                            chat_type = chat['result']['type']  # NEW: Get chat type for conditional perms
+                            
+                            # NEW: Conditional permissions based on chat type
                             promote_params = {
                                 'chat_id': chat_id,
                                 'user_id': user_id,
                                 'is_anonymous': False,
-                                'can_manage_chat': True,
+                            }
+                            # Base permissions (common to all)
+                            base_perms = {
+                                'can_change_info': True,
                                 'can_delete_messages': True,
-                                'can_manage_video_chats': True,
+                                'can_invite_users': True,
                                 'can_restrict_members': True,
                                 'can_promote_members': True,
-                                'can_change_info': True,
-                                'can_invite_users': True,
-                                'can_post_stories': True,
-                                'can_edit_stories': True,
-                                'can_delete_stories': True
+                                'can_manage_chat': True,
                             }
+                            # Channel-specific
+                            if chat_type == 'channel':
+                                channel_perms = {
+                                    'can_post_messages': True,  # Post in channel
+                                    'can_edit_messages': True,  # Edit/pin messages
+                                    'can_manage_direct_messages': True,  # Manage comments
+                                }
+                                promote_params.update(base_perms)
+                                promote_params.update(channel_perms)
+                            else:  # Supergroup/group
+                                group_perms = {
+                                    'can_manage_video_chats': True,
+                                    'can_post_stories': True,
+                                    'can_edit_stories': True,
+                                    'can_delete_stories': True,
+                                }
+                                promote_params.update(base_perms)
+                                promote_params.update(group_perms)
+                            
                             res = api_call('promoteChatMember', promote_params)
                             if res.get('ok'):
                                 success_count += 1
-                                results.append(f"✅ Success for {link}")
+                                results.append(f"✅ Success for {link} (type: {chat_type})")
                             else:
                                 raise Exception(res.get('description', 'Unknown promotion error'))
                         except Exception as e:
@@ -172,6 +194,8 @@ def index():
                     message = "Request timed out (network/API delay). We've increased timeouts—try again in a moment or check your internet/VPN."
                 elif '400' in error_str and 'getChat' in error_str:
                     message = "400 Bad Request on getChat: Invalid channel format or bot not added to channel. Ensure links use @username (e.g., https://t.me/channelname or @channelname), or numeric ID (e.g., -1001234567890), and bot is admin."
+                elif '400' in error_str and 'promoteChatMember' in error_str:
+                    message = "400 Bad Request on promoteChatMember: Likely invalid permissions for chat type (channel vs. group). We've adjusted flags—ensure bot has 'Add Administrators' permission. Full error: " + error_str
                 else:
                     message = f"Unexpected error: {error_str}. Please check your bot token and permissions."
                 message_type = 'danger'
