@@ -10,15 +10,15 @@ def index():
     token = ''
     channels_text = ''
     username = ''
-   
+  
     if request.method == 'POST':
         bot_token = request.form['token'].strip()
         channels_text = request.form['channel'].strip()
         username_input = request.form['username'].strip().lstrip('@')
-       
+      
         if username_input:
             username = '@' + username_input # For display
-       
+      
         channel_links = [link.strip() for link in channels_text.split('\n') if link.strip()]
         if not bot_token:
             message = "Bot token is required."
@@ -36,8 +36,7 @@ def index():
                     if params is None:
                         params = {}
                     r = requests.post(api_url + method, json=params, timeout=30) # Increased to 30s
-                    r.raise_for_status() # Raises HTTPError for bad responses
-                    return r.json()
+                    return r.json() # NEW: Always return JSON for error details
                 except requests.exceptions.Timeout:
                     raise Exception("Request timed out. Telegram API may be slow; try again or check your connection.")
                 except requests.exceptions.RequestException as e:
@@ -56,10 +55,10 @@ def index():
                 # Double-fetch strategy for reliability
                 # First: Short poll to acknowledge any immediate pending (post-drop)
                 _ = api_call('getUpdates', {'limit': 1, 'timeout': 1})
-               
+              
                 # Second: Long poll for fresh messages (e.g., the one just sent)
                 updates = api_call('getUpdates', {'limit': 200, 'timeout': 20})['result']
-               
+              
                 # ENHANCED Debug - collect usernames and details
                 found_usernames = set()
                 update_details = []
@@ -83,7 +82,7 @@ def index():
                     else:
                         detail += f"Other type: {list(update.keys())}"
                     update_details.append(detail)
-               
+              
                 user_id = None
                 for update in reversed(updates): # Check latest first
                     if 'message' in update and 'from' in update['message']:
@@ -99,76 +98,87 @@ def index():
                         message = f"@{username_input} not in recent updates (checked latest first).{debug_info}\n\nTroubleshoot: 1) Send '/start hello' (include text) right now. 2) Wait 5s, resubmit. 3) If anonymous in debug, set a username in Telegram settings."
                     message_type = 'danger'
                 else:
-                    # Rest of promotion code unchanged...
+                    # Promotion code
                     results = []
                     success_count = 0
                     total = len(channel_links)
                     for link in channel_links:
                         try:
-                            # IMPROVED: Better extraction for channel_us
-                            # Handle public: https://t.me/channelname -> @channelname
-                            # Handle private invite: https://t.me/+hash -> Error, as can't resolve
-                            # Handle @direct: @channelname
-                            # Handle numeric ID: -1001234567890 -> -1001234567890 (no @)
+                            # Extraction (unchanged)
                             extracted = link.split('/')[-1].split('?')[0].split('#')[0].lstrip('@')
                             if extracted.startswith('+'):
                                 raise Exception("Private invite links (starting with +) are not supported. Please use the channel's public @username instead (found in channel settings or info). If private without @username, provide the numeric chat ID (e.g., -1001234567890).")
                             if not extracted:
                                 raise Exception("Invalid link format. Expected t.me/username, @username, or numeric ID like -1001234567890.")
-                            
-                            # NEW: Detect numeric ID
+                           
                             if re.match(r'^-?\d+$', extracted):
-                                chat_id_input = extracted  # Use as-is for numeric
+                                chat_id_input = extracted
                             else:
-                                chat_id_input = '@' + extracted  # Prefix for username
-                            
+                                chat_id_input = '@' + extracted
+                           
                             # Get chat info
                             chat = api_call('getChat', {'chat_id': chat_id_input})
                             if not chat.get('ok'):
                                 raise Exception(chat.get('description', 'Invalid channel or bot not in channel'))
-                            chat_id = chat['result']['id']
-                            chat_type = chat['result']['type']  # NEW: Get chat type for conditional perms
+                            chat_data = chat['result']
+                            chat_id = chat_data['id']
+                            chat_type = chat_data['type']
+                            has_linked = chat_data.get('linked_chat_id') is not None # NEW: For DMs in channels
+                           
+                            # NEW: Pre-check user status with getChatMember
+                            member = api_call('getChatMember', {'chat_id': chat_id, 'user_id': user_id})
+                            if not member.get('ok'):
+                                raise Exception(f"Failed to get member status: {member.get('description', 'Unknown error')}")
+                            member_status = member['result']['status']
+                            if member_status == 'administrator':
+                                raise Exception("User is already an administrator—no changes made.")
+                            elif member_status not in ['member', 'subscriber', 'creator']:
+                                raise Exception(f"User status '{member_status}'—must be a member/subscriber to promote.")
                             
-                            # NEW: Conditional permissions based on chat type
+                            # UPDATED: Minimal & type-safe permissions
                             promote_params = {
                                 'chat_id': chat_id,
                                 'user_id': user_id,
                                 'is_anonymous': False,
                             }
-                            # Base permissions (common to all)
-                            base_perms = {
-                                'can_change_info': True,
-                                'can_delete_messages': True,
-                                'can_invite_users': True,
-                                'can_restrict_members': True,
-                                'can_promote_members': True,
-                                'can_manage_chat': True,
-                            }
-                            # Channel-specific
                             if chat_type == 'channel':
-                                channel_perms = {
-                                    'can_post_messages': True,  # Post in channel
-                                    'can_edit_messages': True,  # Edit/pin messages
-                                    'can_manage_direct_messages': True,  # Manage comments
-                                }
-                                promote_params.update(base_perms)
-                                promote_params.update(channel_perms)
-                            else:  # Supergroup/group
-                                group_perms = {
+                                # Minimal for channels: Focus on posting/editing
+                                promote_params.update({
+                                    'can_post_messages': True,
+                                    'can_edit_messages': True,
+                                    'can_delete_messages': True,
+                                    'can_manage_chat': True,  # Includes promote rights
+                                })
+                                if has_linked:
+                                    promote_params['can_manage_direct_messages'] = True
+                            else:  # Supergroup/group: Add group-specific minimally
+                                promote_params.update({
+                                    'can_change_info': True,
+                                    'can_delete_messages': True,
+                                    'can_invite_users': True,
+                                    'can_restrict_members': True,
+                                    'can_promote_members': True,
+                                    'can_pin_messages': True,
                                     'can_manage_video_chats': True,
-                                    'can_post_stories': True,
-                                    'can_edit_stories': True,
-                                    'can_delete_stories': True,
-                                }
-                                promote_params.update(base_perms)
-                                promote_params.update(group_perms)
+                                })
+                                # Stories optional—add only if needed
+                                promote_params['can_post_stories'] = True
                             
                             res = api_call('promoteChatMember', promote_params)
-                            if res.get('ok'):
-                                success_count += 1
-                                results.append(f"✅ Success for {link} (type: {chat_type})")
-                            else:
-                                raise Exception(res.get('description', 'Unknown promotion error'))
+                            if not res.get('ok'):
+                                desc = res.get('description', 'Unknown promotion error')
+                                if 'already administrator' in desc.lower() or 'chat_admin_required' in desc.lower():
+                                    raise Exception(f"Admin-related issue: {desc} (Check bot has 'Add Administrators' permission).")
+                                elif 'user not participant' in desc.lower():
+                                    raise Exception("User must be a member of the channel first.")
+                                elif 'not enough rights' in desc.lower():
+                                    raise Exception(f"Bot lacks rights: {desc} (Enable 'Add Administrators' in channel settings).")
+                                elif 'invalid parameter' in desc.lower():
+                                    raise Exception(f"Permissions mismatch for chat type. Details: {desc}")
+                                else:
+                                    raise Exception(f"Promotion failed: {desc}")
+                            success_count += 1
+                            results.append(f"✅ Success for {link} (type: {chat_type}, DMs: {has_linked}, was: {member_status})")
                         except Exception as e:
                             results.append(f"❌ Failed for {link}: {str(e)}")
                     # Prepare message
@@ -184,7 +194,7 @@ def index():
                         message = f"Partially successful ({total_str}). Details:\n{results_str}"
                         message_type = 'warning'
             except Exception as e:
-                # Enhanced error message for common issues
+                # Enhanced error message
                 error_str = str(e)
                 if '401' in error_str:
                     message = "Invalid bot token (401 Unauthorized). Regenerate via @BotFather."
@@ -195,7 +205,9 @@ def index():
                 elif '400' in error_str and 'getChat' in error_str:
                     message = "400 Bad Request on getChat: Invalid channel format or bot not added to channel. Ensure links use @username (e.g., https://t.me/channelname or @channelname), or numeric ID (e.g., -1001234567890), and bot is admin."
                 elif '400' in error_str and 'promoteChatMember' in error_str:
-                    message = "400 Bad Request on promoteChatMember: Likely invalid permissions for chat type (channel vs. group). We've adjusted flags—ensure bot has 'Add Administrators' permission. Full error: " + error_str
+                    message = "400 Bad Request on promoteChatMember: Likely bot permissions (needs 'Add Administrators'), user already admin, or not a member. Exact API error in results above."
+                elif '400' in error_str and 'getChatMember' in error_str:
+                    message = "400 on getChatMember: User not found in chat—ensure they're a member."
                 else:
                     message = f"Unexpected error: {error_str}. Please check your bot token and permissions."
                 message_type = 'danger'
