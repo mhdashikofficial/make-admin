@@ -1,106 +1,96 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Telegram Admin Promoter</title>
+    <title>Telegram Channel Post Creator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+
     <style>
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #667eea, #764ba2);
             min-height: 100vh;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-        .form-container {
-            max-width: 500px;
+        .card {
+            max-width: 520px;
             margin: auto;
-            padding: 30px;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            border-radius: 16px;
+            box-shadow: 0 15px 40px rgba(0,0,0,.25);
         }
-        .btn-proceed {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .btn-main {
+            background: linear-gradient(135deg, #667eea, #764ba2);
             border: none;
-            transition: all 0.3s ease;
-            font-weight: bold;
-        }
-        .btn-proceed:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
-        .form-label {
             font-weight: 600;
-            color: #333;
         }
-        .alert {
-            border-radius: 10px;
-            border: none;
-            animation: fadeIn 0.5s ease-in;
-            white-space: pre-line; /* Preserve newlines in messages */
+        textarea {
+            resize: none;
         }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        h2 {
-            color: #333;
-            margin-bottom: 2rem;
-        }
-        .form-text {
-            color: #6c757d;
-        }
-        .alert-success { background-color: #d4edda; color: #155724; }
-        .alert-warning { background-color: #fff3cd; color: #856404; }
-        .alert-danger { background-color: #f8d7da; color: #721c24; }
-        .alert-info { background-color: #d1ecf1; color: #0c5460; }
     </style>
 </head>
-<body class="d-flex align-items-center min-vh-100 py-3">
-    <div class="container">
-        <div class="form-container animate__animated animate__fadeIn">
-            <h2 class="text-center mb-4">🤖 Telegram Channel Admin Promoter</h2>
-            <p class="text-center text-muted mb-4">Enter your bot token, channel links, and the username to promote. Ensure the bot is an admin in the channels and the user has messaged the bot recently.</p>
-            
-            {% if message %}
-                <div class="alert alert-{{ 'success' if message_type == 'success' else 'warning' if message_type == 'warning' else 'danger' }} animate__animated animate__bounceIn">
-                    {{ message | safe }}
-                </div>
-            {% endif %}
-            
-            <form method="POST">
-                <div class="mb-3">
-                    <label for="token" class="form-label">Bot Token</label>
-                    <input type="password" class="form-control" id="token" name="token" placeholder="e.g., 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11" value="{{ token }}" required>
-                </div>
-                <div class="mb-3">
-                    <label for="channel" class="form-label">Target Channel Links (one per line)</label>
-                    <textarea class="form-control" id="channel" name="channel" rows="3" placeholder="https://t.me/channel1
-https://t.me/channel2" required>{{ channels_text }}</textarea>
-                    <div class="form-text">Supports multiple channels, one link per line.</div>
-                </div>
-                <div class="mb-3">
-                    <label for="username" class="form-label">Account Username (without @)</label>
-                    <input type="text" class="form-control" id="username" name="username" placeholder="e.g., john_doe" value="{{ username.lstrip('@') if username else '' }}" required>
-                    <div class="form-text">The user must have sent a message to the bot recently to resolve their ID.</div>
-                </div>
-                <button type="submit" class="btn btn-primary w-100 btn-proceed animate__animated">🚀 Proceed & Promote</button>
-            </form>
-            <div class="mt-4 text-center text-muted small">
-                <p>⚠️ Ensure your bot has admin rights with promote permissions in the channels.</p>
+
+<body class="d-flex align-items-center py-4">
+
+<div class="container">
+    <div class="card p-4 animate__animated animate__fadeIn">
+        <h3 class="text-center mb-3">📢 Telegram Channel Post</h3>
+        <p class="text-center text-muted">
+            Send a message to a channel where your bot is admin
+        </p>
+
+        {% if message %}
+        <div class="alert alert-{{ message_type }} animate__animated animate__bounceIn">
+            {{ message }}
+        </div>
+        {% endif %}
+
+        <form method="POST">
+            <div class="mb-3">
+                <label class="form-label">Bot Token</label>
+                <input type="password" name="token" class="form-control"
+                       placeholder="123456:ABCDEF..." value="{{ bot_token }}" required>
             </div>
+
+            <div class="mb-3">
+                <label class="form-label">Chat ID / Channel Username</label>
+                <input type="text" name="chat_id" class="form-control"
+                       placeholder="@channelusername or -1001234567890"
+                       value="{{ chat_id }}" required>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Message</label>
+                <textarea name="message" class="form-control" rows="4"
+                          placeholder="Your post content here..." required>{{ text }}</textarea>
+                <div class="form-text">HTML formatting supported</div>
+            </div>
+
+            <hr>
+
+            <div class="mb-3">
+                <label class="form-label">Inline Button Text (optional)</label>
+                <input type="text" name="button_text" class="form-control"
+                       placeholder="Visit Website" value="{{ button_text }}">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Inline Button URL (optional)</label>
+                <input type="url" name="button_url" class="form-control"
+                       placeholder="https://example.com" value="{{ button_url }}">
+            </div>
+
+            <button class="btn btn-primary btn-main w-100">
+                🚀 Send Message
+            </button>
+        </form>
+
+        <div class="mt-3 text-center text-muted small">
+            ⚠️ Bot must be admin with posting rights
         </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Add subtle animation on form submit
-        document.querySelector('form').addEventListener('submit', function() {
-            const btn = document.querySelector('.btn-proceed');
-            btn.innerHTML = '⏳ Processing...';
-            btn.classList.add('animate__pulse', 'animate__infinite');
-        });
-    </script>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
