@@ -127,13 +127,3 @@ Feel free to fork and modify, but please keep the credits intact.
 
 ```
 
----
-
-If you want, I can also:
-- Add badges (Python, Flask, Telegram)
-- Write a stricter license
-- Add screenshots section
-- Optimize it for GitHub SEO
-
-Just say it.
-```
