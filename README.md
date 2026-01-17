@@ -125,5 +125,3 @@ GitHub: [https://github.com/mhdashikofficial](https://github.com/mhdashikofficia
 This project is provided for educational and personal use.
 Feel free to fork and modify, but please keep the credits intact.
 
-```
-
