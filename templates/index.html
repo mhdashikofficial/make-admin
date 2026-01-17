@@ -1,0 +1,101 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Admin Promoter</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .form-container {
+            max-width: 500px;
+            margin: auto;
+            padding: 30px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .btn-proceed {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+        .btn-proceed:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .form-label {
+            font-weight: 600;
+            color: #333;
+        }
+        .alert {
+            border-radius: 10px;
+            border: none;
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 2rem;
+        }
+        .form-text {
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body class="d-flex align-items-center min-vh-100 py-3">
+    <div class="container">
+        <div class="form-container animate__animated animate__fadeIn">
+            <h2 class="text-center mb-4">🤖 Telegram Channel Admin Promoter</h2>
+            <p class="text-center text-muted mb-4">Enter your bot token, channel links, and the username to promote. Ensure the bot is an admin in the channels and the user has messaged the bot recently.</p>
+            
+            {% if message %}
+                <div class="alert alert-{{ 'success' if message_type == 'success' else 'info' if message_type == 'info' else 'danger' }} animate__animated animate__bounceIn">
+                    {{ message | safe }}
+                </div>
+            {% endif %}
+            
+            <form method="POST">
+                <div class="mb-3">
+                    <label for="token" class="form-label">Bot Token</label>
+                    <input type="password" class="form-control" id="token" name="token" placeholder="e.g., 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11" required>
+                </div>
+                <div class="mb-3">
+                    <label for="channel" class="form-label">Target Channel Links (one per line)</label>
+                    <textarea class="form-control" id="channel" name="channel" rows="3" placeholder="https://t.me/channel1
+https://t.me/channel2" required></textarea>
+                    <div class="form-text">Supports multiple channels, one link per line.</div>
+                </div>
+                <div class="mb-3">
+                    <label for="username" class="form-label">Account Username (without @)</label>
+                    <input type="text" class="form-control" id="username" name="username" placeholder="e.g., john_doe" required>
+                    <div class="form-text">The user must have sent a message to the bot recently to resolve their ID.</div>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 btn-proceed animate__animated">🚀 Proceed & Promote</button>
+            </form>
+            <div class="mt-4 text-center text-muted small">
+                <p>⚠️ Ensure your bot has admin rights with promote permissions in the channels.</p>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Add subtle animation on form submit
+        document.querySelector('form').addEventListener('submit', function() {
+            const btn = document.querySelector('.btn-proceed');
+            btn.innerHTML = '⏳ Processing...';
+            btn.classList.add('animate__pulse', 'animate__infinite');
+        });
+    </script>
+</body>
+</html>
