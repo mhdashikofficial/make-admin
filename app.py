@@ -39,14 +39,16 @@ def index():
                 try:
                     if params is None:
                         params = {}
-                    r = requests.post(api_url + method, json=params, timeout=10)
+                    r = requests.post(api_url + method, json=params, timeout=30)  # Increased to 30s
                     r.raise_for_status()  # Raises HTTPError for bad responses
                     return r.json()
+                except requests.exceptions.Timeout:
+                    raise Exception("Request timed out. Telegram API may be slow; try again or check your connection.")
                 except requests.exceptions.RequestException as e:
                     raise Exception(f"API request failed: {str(e)}")
 
             try:
-                # NEW: Validate token first
+                # Validate token first
                 me = api_call('getMe')
                 if not me.get('ok'):
                     raise Exception(f"Invalid bot token: {me.get('description', 'Unknown error')}")
@@ -57,9 +59,9 @@ def index():
                     raise Exception(f"Failed to clear webhook: {webhook_clear.get('description', 'Unknown error')}")
 
                 # Fetch user ID from recent updates (increased limit/timeout)
-                updates = api_call('getUpdates', {'limit': 200, 'timeout': 10})['result']
+                updates = api_call('getUpdates', {'limit': 200, 'timeout': 20})['result']  # Increased inner timeout to 20s
                 
-                # NEW: Debug - collect usernames from updates
+                # Debug - collect usernames from updates
                 found_usernames = set()
                 for update in updates:
                     if 'message' in update and 'from' in update['message']:
@@ -151,6 +153,8 @@ def index():
                     message = "Invalid bot token (401 Unauthorized). Regenerate via @BotFather."
                 elif '409' in error_str:
                     message = f"409 Conflict detected (likely webhook or multiple instances). We've attempted to clear the webhook—try again. If it persists, ensure no other apps are using this bot token."
+                elif 'timed out' in error_str.lower():
+                    message = "Request timed out (network/API delay). We've increased timeouts—try again in a moment or check your internet/VPN."
                 else:
                     message = f"Unexpected error: {error_str}. Please check your bot token and permissions."
                 message_type = 'danger'
