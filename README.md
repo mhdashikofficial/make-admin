@@ -1,8 +1,4 @@
 
-
----
-
-````md
 # Telegram Channel Post Creator 🤖📢
 
 A web-based tool to create and publish **Telegram channel posts** using a bot that is already an admin.  
