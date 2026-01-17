@@ -39,6 +39,7 @@
             border-radius: 10px;
             border: none;
             animation: fadeIn 0.5s ease-in;
+            white-space: pre-line; /* Preserve newlines in messages */
         }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -51,6 +52,10 @@
         .form-text {
             color: #6c757d;
         }
+        .alert-success { background-color: #d4edda; color: #155724; }
+        .alert-warning { background-color: #fff3cd; color: #856404; }
+        .alert-danger { background-color: #f8d7da; color: #721c24; }
+        .alert-info { background-color: #d1ecf1; color: #0c5460; }
     </style>
 </head>
 <body class="d-flex align-items-center min-vh-100 py-3">
@@ -60,7 +65,7 @@
             <p class="text-center text-muted mb-4">Enter your bot token, channel links, and the username to promote. Ensure the bot is an admin in the channels and the user has messaged the bot recently.</p>
             
             {% if message %}
-                <div class="alert alert-{{ 'success' if message_type == 'success' else 'info' if message_type == 'info' else 'danger' }} animate__animated animate__bounceIn">
+                <div class="alert alert-{{ 'success' if message_type == 'success' else 'warning' if message_type == 'warning' else 'danger' }} animate__animated animate__bounceIn">
                     {{ message | safe }}
                 </div>
             {% endif %}
@@ -68,17 +73,17 @@
             <form method="POST">
                 <div class="mb-3">
                     <label for="token" class="form-label">Bot Token</label>
-                    <input type="password" class="form-control" id="token" name="token" placeholder="e.g., 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11" required>
+                    <input type="password" class="form-control" id="token" name="token" placeholder="e.g., 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11" value="{{ token }}" required>
                 </div>
                 <div class="mb-3">
                     <label for="channel" class="form-label">Target Channel Links (one per line)</label>
                     <textarea class="form-control" id="channel" name="channel" rows="3" placeholder="https://t.me/channel1
-https://t.me/channel2" required></textarea>
+https://t.me/channel2" required>{{ channels_text }}</textarea>
                     <div class="form-text">Supports multiple channels, one link per line.</div>
                 </div>
                 <div class="mb-3">
                     <label for="username" class="form-label">Account Username (without @)</label>
-                    <input type="text" class="form-control" id="username" name="username" placeholder="e.g., john_doe" required>
+                    <input type="text" class="form-control" id="username" name="username" placeholder="e.g., john_doe" value="{{ username.lstrip('@') if username else '' }}" required>
                     <div class="form-text">The user must have sent a message to the bot recently to resolve their ID.</div>
                 </div>
                 <button type="submit" class="btn btn-primary w-100 btn-proceed animate__animated">🚀 Proceed & Promote</button>
